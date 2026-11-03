@@ -1501,6 +1501,54 @@ describe('brackets that cannot become Markdown syntax', () => {
       });
     });
 
+    it.each([
+      'https://x.com/WinstonGu_/status/2117336804705927410?a=b&s=20',
+      'https://en.wikipedia.org/wiki/Asterisk_(disambiguation)',
+      'https://example.com/a*b~c`d',
+      'https://example.com/a\\b',
+    ])('writes the markdown markers in %j literally', url => {
+      using editor = buildEditorFromExtensions(
+        MarkdownTestExtension,
+        AutoLinkNodeExtension,
+      );
+      editor.update(
+        () =>
+          $getRoot()
+            .clear()
+            .append(
+              $createParagraphNode().append(
+                $createAutoLinkNode(url).append($createTextNode(url)),
+              ),
+            ),
+        {discrete: true},
+      );
+      expect(editor.read(() => $convertToMarkdownString())).toBe(url);
+    });
+
+    it('still escapes markers in text beside an autolink', () => {
+      using editor = buildEditorFromExtensions(
+        MarkdownTestExtension,
+        AutoLinkNodeExtension,
+      );
+      editor.update(
+        () =>
+          $getRoot()
+            .clear()
+            .append(
+              $createParagraphNode().append(
+                $createAutoLinkNode('https://example.com/a_b').append(
+                  $createTextNode('https://example.com/a_b'),
+                ),
+                $createTextNode(' and c_d'),
+              ),
+            ),
+        {discrete: true},
+      );
+      expect(editor.read(() => $convertToMarkdownString())).toBe(
+        'https://example.com/a_b and c\\_d',
+      );
+    });
+
     const WITHOUT_LINK = TRANSFORMERS.filter(
       transformer => transformer !== LINK,
     );

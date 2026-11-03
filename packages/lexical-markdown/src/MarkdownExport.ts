@@ -553,6 +553,11 @@ function $exportTextFormat(
   // so the tags go inside the whitespace instead: "   **foo**   ".
 
   const isCode = node.hasFormat('code');
+  // An autolink is written bare rather than as [text](url), so its text is the
+  // URL. A backslash is not a URL character, so escaping a marker there leaves
+  // a URL that no autolinker will pick up again. Character references and the
+  // bracket guards below still apply; only the backslashes are dropped.
+  const escapeMarkers = !$isAutoLinkNode(node.getParent());
 
   let output = textContent;
   if (!isCode) {
@@ -565,21 +570,25 @@ function $exportTextFormat(
     if (shouldPreserveNewLines) {
       // A whole run of backslashes is matched, so that one before no marker
       // is not tried again from each of its backslashes.
-      output = output.replace(
-        /\\+|[*_`~]/g,
-        (escaped, offset: number, text: string) =>
-          escaped[0] !== '\\'
-            ? `\\${escaped}`
-            : /[*_`~]/.test(text[offset + escaped.length])
-              ? escaped + escaped
-              : escaped,
-      );
+      if (escapeMarkers) {
+        output = output.replace(
+          /\\+|[*_`~]/g,
+          (escaped, offset: number, text: string) =>
+            escaped[0] !== '\\'
+              ? `\\${escaped}`
+              : /[*_`~]/.test(text[offset + escaped.length])
+                ? escaped + escaped
+                : escaped,
+        );
+      }
     } else {
       output = $escapeLiteralBrackets(
         node,
         output.replace(/([*_`~\\]|<(?=\S|$)|&(?=#|$))/g, character =>
           /[*_`~\\]/.test(character)
-            ? `\\${character}`
+            ? escapeMarkers
+              ? `\\${character}`
+              : character
             : toCharacterReference(character),
         ),
         selection,
