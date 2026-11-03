@@ -8,6 +8,7 @@
 
 import type {ElementNode, LexicalNode, TextFormatType, TextNode} from 'lexical';
 
+import {$isAutoLinkNode} from '@lexical/link';
 import {
   $getRoot,
   $isDecoratorNode,
@@ -211,7 +212,10 @@ function exportTextFormat(
       ? textContent
       : escapeLeadingAndTrailingWhitespaces(textContent);
 
-  if (!node.hasFormat('code')) {
+  // The text of an autolink is the URL itself, and it is exported bare rather
+  // than as [text](url). Escaping it would put backslashes inside the URL, so
+  // neither this importer nor any other consumer can autolink it again.
+  if (!node.hasFormat('code') && !$isAutoLinkNode(node.getParent())) {
     // Escape any markdown characters in the text content
     output = output.replace(/([*_`~\\])/g, '\\$1');
   }

@@ -9,7 +9,12 @@
 import {$createCodeNode, CodeNode} from '@lexical/code';
 import {createHeadlessEditor} from '@lexical/headless';
 import {$generateHtmlFromNodes, $generateNodesFromDOM} from '@lexical/html';
-import {$createLinkNode, LinkNode} from '@lexical/link';
+import {
+  $createAutoLinkNode,
+  $createLinkNode,
+  AutoLinkNode,
+  LinkNode,
+} from '@lexical/link';
 import {ListItemNode, ListNode} from '@lexical/list';
 import {HeadingNode, QuoteNode} from '@lexical/rich-text';
 import {
@@ -1047,5 +1052,79 @@ E3
 | c | d |
 `;
     expect(normalizeMarkdown(markdown, false)).toBe(markdown);
+  });
+});
+
+describe('AutoLinkNode export', () => {
+  function exportAutoLink(url: string): string {
+    const editor = createHeadlessEditor({
+      nodes: [LinkNode, AutoLinkNode],
+      onError: (error) => {
+        throw error;
+      },
+    });
+
+    editor.update(
+      () => {
+        const linkNode = $createAutoLinkNode(url);
+        linkNode.append($createTextNode(url));
+        $getRoot().clear().append($createParagraphNode().append(linkNode));
+      },
+      {discrete: true},
+    );
+
+    return editor
+      .getEditorState()
+      .read(() => $convertToMarkdownString(TRANSFORMERS));
+  }
+
+  it.each([
+    'https://x.com/WinstonGu_/status/2117336804705927410?a=ArflP6b77b4FyTSktj8&s=20',
+    'https://en.wikipedia.org/wiki/Asterisk_(disambiguation)',
+    'https://example.com/a*b~c`d',
+  ])('exports %s without escaping markdown characters', (url) => {
+    expect(exportAutoLink(url)).toBe(url);
+  });
+
+  it('re-imports an exported url as the same text', () => {
+    const url = 'https://x.com/WinstonGu_/status/2117336804705927410';
+    const editor = createHeadlessEditor({
+      nodes: [LinkNode, AutoLinkNode],
+      onError: (error) => {
+        throw error;
+      },
+    });
+
+    editor.update(() => $convertFromMarkdownString(exportAutoLink(url)), {
+      discrete: true,
+    });
+
+    expect(
+      editor.getEditorState().read(() => $getRoot().getTextContent()),
+    ).toBe(url);
+  });
+
+  it('still escapes link text that is not an autolink', () => {
+    const editor = createHeadlessEditor({
+      nodes: [LinkNode, AutoLinkNode],
+      onError: (error) => {
+        throw error;
+      },
+    });
+
+    editor.update(
+      () => {
+        const linkNode = $createLinkNode('https://lexical.dev');
+        linkNode.append($createTextNode('snake_case'));
+        $getRoot().clear().append($createParagraphNode().append(linkNode));
+      },
+      {discrete: true},
+    );
+
+    expect(
+      editor
+        .getEditorState()
+        .read(() => $convertToMarkdownString(TRANSFORMERS)),
+    ).toBe('[snake\\_case](https://lexical.dev)');
   });
 });
